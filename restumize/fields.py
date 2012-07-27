@@ -83,11 +83,14 @@ class CharField(BaseField):
             self.validators.append(validators.MinLengthValidator(min_length))
         if max_length is not None:
             self.validators.append(validators.MaxLengthValidator(max_length))
+        if self.default is None:
+            # do not return None, return empty unicode string instead
+            self.default = u''
 
     def to_python(self, value):
         "Returns a Unicode object."
         if value in validators.EMPTY_VALUES:
-            return u''
+            return self.default
         return smart_unicode(value)
 
 
@@ -114,7 +117,7 @@ class IntegerField(BaseField):
         """
         value = super(IntegerField, self).to_python(value)
         if value in validators.EMPTY_VALUES:
-            return None
+            return self.default
         if self.localize:
             value = formats.sanitize_separators(value)
         try:
@@ -136,7 +139,7 @@ class FloatField(IntegerField):
         """
         value = super(IntegerField, self).to_python(value)
         if value in validators.EMPTY_VALUES:
-            return None
+            return self.default
         if self.localize:
             value = formats.sanitize_separators(value)
         try:
@@ -174,7 +177,7 @@ class DecimalField(BaseField):
         after the decimal point.
         """
         if value in validators.EMPTY_VALUES:
-            return None
+            return self.default
         if self.localize:
             value = formats.sanitize_separators(value)
         value = smart_str(value).strip()
@@ -261,7 +264,7 @@ class DateField(BaseTemporalField):
         datetime.date object.
         """
         if value in validators.EMPTY_VALUES:
-            return None
+            return self.default
         if isinstance(value, datetime.datetime):
             return value.date()
         if isinstance(value, datetime.date):
@@ -284,7 +287,7 @@ class TimeField(BaseTemporalField):
         datetime.time object.
         """
         if value in validators.EMPTY_VALUES:
-            return None
+            return self.default
         if isinstance(value, datetime.time):
             return value
         return super(TimeField, self).to_python(value)
@@ -310,7 +313,7 @@ class DateTimeField(BaseTemporalField):
         Python datetime.datetime object.
         """
         if value in validators.EMPTY_VALUES:
-            return None
+            return self.default
         if isinstance(value, datetime.datetime):
             return from_current_timezone(value)
         if isinstance(value, datetime.date):
@@ -320,7 +323,7 @@ class DateTimeField(BaseTemporalField):
             # Input comes from a SplitDateTimeWidget, for example. So, it's two
             # components: date and time.
             if value in validators.EMPTY_VALUES and value[1] in validators.EMPTY_VALUES:
-                return None
+                return self.default
         result = super(DateTimeField, self).to_python(value)
         return from_current_timezone(result)
 
@@ -434,7 +437,7 @@ class NullBooleanField(BooleanField):
         elif value in (False, 'False', '0'):
             return False
         else:
-            return None
+            return self.default
 
     def validate(self, value):
         pass
@@ -456,7 +459,7 @@ class FileField(BaseField):
 
     def to_python(self, data):
         if data in validators.EMPTY_VALUES:
-            return None
+            return self.default
 
         # UploadedFile objects should have name and size attributes.
         try:
@@ -512,7 +515,7 @@ class ImageField(FileField):
         """
         f = super(ImageField, self).to_python(data)
         if f is None:
-            return None
+            return self.default
 
         # Try to import PIL in either of the two ways it can end up installed.
         try:

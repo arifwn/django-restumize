@@ -178,7 +178,7 @@ class BaseHandler(object):
 
         if settings.DEBUG:
             data = {
-                "error_message": unicode(exception),
+                "error": unicode(exception),
                 "traceback": the_trace,
             }
             desired_format = self.determine_format(request)
@@ -204,7 +204,7 @@ class BaseHandler(object):
 
         # Prep the data going out.
         data = {
-            "error_message": getattr(settings, 'TASTYPIE_CANNED_ERROR', "Sorry, this request could not be processed. Please try again later."),
+            "error": getattr(settings, 'RESTUMIZE_CANNED_ERROR', "Sorry, this request could not be processed. Please try again later."),
         }
         desired_format = self.determine_format(request)
         serialized = self.serialize(request, data, desired_format)
@@ -245,7 +245,10 @@ class BaseHandler(object):
 
         # All clear. Process the request.
         request = convert_post_to_put(request)
-        response = method(request, **kwargs)
+        if self.is_valid():
+            response = method(request, **kwargs)
+        else:
+            return http.HttpBadRequest()
 
         # Add the throttled request.
         self.log_throttled_access(request)
