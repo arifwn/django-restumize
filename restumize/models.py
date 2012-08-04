@@ -46,15 +46,23 @@ if 'django.contrib.auth' in settings.INSTALLED_APPS:
             return super(Token, self).save(*args, **kwargs)
         
         def generate_key(self):
-            # Get a random UUID.
-            new_uuid = uuid.uuid4()
-            # Hmac that beast.
-            return hmac.new(str(new_uuid), digestmod=sha1).hexdigest()
+            while True:
+                # Get a random UUID.
+                new_uuid = uuid.uuid4()
+                key = hmac.new(str(new_uuid), digestmod=sha1).hexdigest()
+                if not token_exist(key):
+                    break
+            return key
     
     
-    def create_api_key(sender, **kwargs):
+    def create_api_token(sender, **kwargs):
         """
         A signal for hooking up automatic ``Token`` creation.
         """
         if kwargs.get('created') is True:
             Token.objects.create(user=kwargs.get('instance'))
+
+
+    def token_exist(token_value):
+            return Token.objects.filter(token=token_value).exists()
+

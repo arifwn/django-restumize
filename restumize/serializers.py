@@ -5,9 +5,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.serializers import json
 from django.utils import simplejson
 from django.utils.encoding import force_unicode
-from tastypie.bundle import Bundle
-from tastypie.exceptions import UnsupportedFormat
-from tastypie.utils import format_datetime, format_date, format_time, make_naive
+from restumize.bundle import Bundle
+from restumize.exceptions import UnsupportedFormat
+from restumize.utils import format_datetime, format_date, format_time, make_naive
 try:
     import lxml
     from lxml.etree import parse as parse_xml
@@ -26,14 +26,14 @@ except ImportError:
 
 
 # Ugh & blah.
-# So doing a regular dump is generally fine, since Tastypie doesn't usually
+# So doing a regular dump is generally fine, since Restumize doesn't usually
 # serialize advanced types. *HOWEVER*, it will dump out Python Unicode strings
 # as a custom YAML tag, which of course ``yaml.safe_load`` can't handle.
 if yaml is not None:
     from yaml.constructor import SafeConstructor
     from yaml.loader import Reader, Scanner, Parser, Composer, Resolver
 
-    class TastypieConstructor(SafeConstructor):
+    class RestumizeConstructor(SafeConstructor):
         def construct_yaml_unicode_dammit(self, node):
             value = self.construct_scalar(node)
             try:
@@ -41,15 +41,15 @@ if yaml is not None:
             except UnicodeEncodeError:
                 return value
 
-    TastypieConstructor.add_constructor(u'tag:yaml.org,2002:python/unicode', TastypieConstructor.construct_yaml_unicode_dammit)
+    RestumizeConstructor.add_constructor(u'tag:yaml.org,2002:python/unicode', RestumizeConstructor.construct_yaml_unicode_dammit)
 
-    class TastypieLoader(Reader, Scanner, Parser, Composer, TastypieConstructor, Resolver):
+    class RestumizeLoader(Reader, Scanner, Parser, Composer, RestumizeConstructor, Resolver):
         def __init__(self, stream):
             Reader.__init__(self, stream)
             Scanner.__init__(self)
             Parser.__init__(self)
             Composer.__init__(self)
-            TastypieConstructor.__init__(self)
+            RestumizeConstructor.__init__(self)
             Resolver.__init__(self)
 
 
@@ -82,7 +82,7 @@ class Serializer(object):
 
     def __init__(self, formats=None, content_types=None, datetime_formatting=None):
         self.supported_formats = []
-        self.datetime_formatting = getattr(settings, 'TASTYPIE_DATETIME_FORMATTING', 'iso-8601')
+        self.datetime_formatting = getattr(settings, 'RESTUMIZE_DATETIME_FORMATTING', 'iso-8601')
 
         if formats is not None:
             self.formats = formats
@@ -116,7 +116,7 @@ class Serializer(object):
         A hook to control how datetimes are formatted.
 
         Can be overridden at the ``Serializer`` level (``datetime_formatting``)
-        or globally (via ``settings.TASTYPIE_DATETIME_FORMATTING``).
+        or globally (via ``settings.RESTUMIZE_DATETIME_FORMATTING``).
 
         Default is ``iso-8601``, which looks like "2010-12-16T03:02:14".
         """
@@ -131,7 +131,7 @@ class Serializer(object):
         A hook to control how dates are formatted.
 
         Can be overridden at the ``Serializer`` level (``datetime_formatting``)
-        or globally (via ``settings.TASTYPIE_DATETIME_FORMATTING``).
+        or globally (via ``settings.RESTUMIZE_DATETIME_FORMATTING``).
 
         Default is ``iso-8601``, which looks like "2010-12-16".
         """
@@ -145,7 +145,7 @@ class Serializer(object):
         A hook to control how times are formatted.
 
         Can be overridden at the ``Serializer`` level (``datetime_formatting``)
-        or globally (via ``settings.TASTYPIE_DATETIME_FORMATTING``).
+        or globally (via ``settings.RESTUMIZE_DATETIME_FORMATTING``).
 
         Default is ``iso-8601``, which looks like "03:02:14".
         """
@@ -389,7 +389,7 @@ class Serializer(object):
         if yaml is None:
             raise ImproperlyConfigured("Usage of the YAML aspects requires yaml.")
 
-        return yaml.load(content, Loader=TastypieLoader)
+        return yaml.load(content, Loader=RestumizeLoader)
 
     def to_plist(self, data, options=None):
         """

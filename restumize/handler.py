@@ -114,54 +114,51 @@ class BaseHandler(object):
         self.post_data = post_data or {}
         self.files = files or {}
 
-    def get_raw_value(self, name):
+    def _get_raw_value(self, name):
         value = self.get_data.get(name)
         value = self.post_data.get(name, value)
+        value = self.files.get(name, value)
 
         return value
 
-    def is_valid(self):
-        self.full_clean()
+    def _is_valid(self):
+        self._full_clean()
         return not bool(self._errors)
 
-    def get_error_list(self):
+    def _get_error_list(self):
         error_list = []
         for name, value in self._errors.iteritems():
             error_list.append((name,value))
 
         return error_list
 
-    def full_clean(self):
-        self.cleaned_data = {}
+    def _full_clean(self):
+        self._cleaned_data = {}
         self._errors = {}
         self._clean_fields()
         self._replace_fields()
         if self._errors:
-            del self.cleaned_data
+            del self._cleaned_data
 
     def _clean_fields(self):
         for name, field in self.fields.items():
-            value = self.get_raw_value(name)
+            value = self._get_raw_value(name)
             try:
-                if isinstance(field, FileField):
-                    initial = self.initial.get(name, field.initial)
-                    value = field.clean(value, initial)
-                else:
-                    value = field.clean(value)
-                self.cleaned_data[name] = value
+                value = field.clean(value)
+                self._cleaned_data[name] = value
                 if hasattr(self, 'clean_%s' % name):
                     value = getattr(self, 'clean_%s' % name)()
-                    self.cleaned_data[name] = value
+                    self._cleaned_data[name] = value
             except ValidationError, e:
                 self._errors[name] = self.error_class(e.messages)
-                if name in self.cleaned_data:
-                    del self.cleaned_data[name]
+                if name in self._cleaned_data:
+                    del self._cleaned_data[name]
     
     def _replace_fields(self):
         """
         Replace original fields with cleaned values.
         """
-        for name, value in self.cleaned_data.items():
+        for name, value in self._cleaned_data.items():
             setattr(self, name, value)
 
     def _handle_500(self, request, exception):
@@ -181,8 +178,8 @@ class BaseHandler(object):
                 "error": unicode(exception),
                 "traceback": the_trace,
             }
-            desired_format = self.determine_format(request)
-            serialized = self.serialize(request, data, desired_format)
+            desired_format = self._determine_format(request)
+            serialized = self._serialize(request, data, desired_format)
             return response_class(content=serialized, content_type=build_content_type(desired_format))
 
         # When DEBUG is False, send an error message to the admins (unless it's
@@ -206,52 +203,49 @@ class BaseHandler(object):
         data = {
             "error": getattr(settings, 'RESTUMIZE_CANNED_ERROR', "Sorry, this request could not be processed. Please try again later."),
         }
-        desired_format = self.determine_format(request)
-        serialized = self.serialize(request, data, desired_format)
+        desired_format = self._determine_format(request)
+        serialized = self._serialize(request, data, desired_format)
         return response_class(content=serialized, content_type=build_content_type(desired_format))
 
-    def clean(self):
+    def _clean(self):
         """
         Hook for doing any extra handler-wide cleaning after Field.clean() been
         called on every field. Any ValidationError raised by this method will
         not be associated with a particular field; it will have a special-case
         association with the field named '__all__'.
         """
-        return self.cleaned_data
+        return self._cleaned_data
 
-    def view(self, request, **kwargs):
+    def _view(self, request, **kwargs):
         """
         A view for handling the various HTTP methods (GET/POST/PUT/DELETE).
 
         Relies on ``Resource.dispatch`` for the heavy-lifting.
         """
-        return self.dispatch(request, **kwargs)
+        return self._dispatch(request, **kwargs)
 
-    def dispatch(self, request, **kwargs):
+    def _dispatch(self, request, **kwargs):
         """
         Handles the common operations (allowed HTTP method, authentication,
         throttling, method lookup) surrounding most CRUD interactions.
         """
         allowed_methods = getattr(self._meta, "allowed_methods", None)
-        request_method = self.method_check(request, allowed=allowed_methods)
+        request_method = self._method_check(request, allowed=allowed_methods)
         method = getattr(self, request_method, None)
 
-        if method is None:
-            raise ImmediateHttpResponse(response=http.HttpNotImplemented())
-
-        self.is_authenticated(request)
-        self.is_authorized(request)
-        self.throttle_check(request)
+        self._is_authenticated(request)
+        self._is_authorized(request)
+        self._throttle_check(request)
 
         # All clear. Process the request.
         request = convert_post_to_put(request)
-        if self.is_valid():
+        if self._is_valid():
             response = method(request, **kwargs)
         else:
             return http.HttpBadRequest()
 
         # Add the throttled request.
-        self.log_throttled_access(request)
+        self._log_throttled_access(request)
 
         # If what comes back isn't a ``HttpResponse``, assume that the
         # request was accepted and that some action occurred. This also
@@ -262,13 +256,13 @@ class BaseHandler(object):
         if response is None:
             return http.HttpNoContent()
 
-        desired_format = self.determine_format(request)
-        data = self.serialize(request, response, desired_format)
+        desired_format = self._determine_format(request)
+        data = self._serialize(request, response, desired_format)
         response = HttpResponse(data, content_type=build_content_type(desired_format))
 
         return response
 
-    def method_check(self, request, allowed=None):
+    def _method_check(self, request, allowed=None):
         """
         Ensures that the HTTP method used on the request is allowed to be
         handled by the resource.
@@ -277,14 +271,14 @@ class BaseHandler(object):
         HTTP methods to check against. Usually, this looks like::
 
             # The most generic lookup.
-            self.method_check(request, self._meta.allowed_methods)
+            self._method_check(request, self._meta.allowed_methods)
 
             # A lookup against what's allowed for list-type methods.
-            self.method_check(request, self._meta.list_allowed_methods)
+            self._method_check(request, self._meta.list_allowed_methods)
 
             # A useful check when creating a new endpoint that only handles
             # GET.
-            self.method_check(request, ['get'])
+            self._method_check(request, ['get'])
         """
         if allowed is None:
             allowed = []
@@ -304,7 +298,7 @@ class BaseHandler(object):
 
         return request_method
 
-    def is_authorized(self, request, object=None):
+    def _is_authorized(self, request, object=None):
         """
         Handles checking of permissions to see if the user has authorization
         to GET, POST, PUT, or DELETE this resource.  If ``object`` is provided,
@@ -319,7 +313,7 @@ class BaseHandler(object):
         if not auth_result is True:
             raise ImmediateHttpResponse(response=http.HttpUnauthorized())
 
-    def is_authenticated(self, request):
+    def _is_authenticated(self, request):
         """
         Handles checking if the user is authenticated and dealing with
         unauthenticated users.
@@ -336,7 +330,7 @@ class BaseHandler(object):
         if not auth_result is True:
             raise ImmediateHttpResponse(response=http.HttpUnauthorized())
 
-    def throttle_check(self, request):
+    def _throttle_check(self, request):
         """
         Handles checking if the user should be throttled.
 
@@ -350,7 +344,7 @@ class BaseHandler(object):
             # Throttle limit exceeded.
             raise ImmediateHttpResponse(response=http.HttpTooManyRequests())
 
-    def log_throttled_access(self, request):
+    def _log_throttled_access(self, request):
         """
         Handles the recording of the user's access for throttling purposes.
 
@@ -360,7 +354,7 @@ class BaseHandler(object):
         request_method = request.method.lower()
         self._meta.throttle.accessed(self._meta.authentication.get_identifier(request), url=request.get_full_path(), request_method=request_method)
     
-    def serialize(self, request, data, format, options=None):
+    def _serialize(self, request, data, format, options=None):
         """
         Given a request, data and a desired format, produces a serialized
         version suitable for transfer over the wire.
@@ -380,7 +374,7 @@ class BaseHandler(object):
 
         return self._meta.serializer.serialize(data, format, options)
     
-    def determine_format(self, request):
+    def _determine_format(self, request):
         """
         Used to determine the desired format.
 
@@ -390,19 +384,19 @@ class BaseHandler(object):
         return determine_format(request, self._meta.serializer, default_format=self._meta.default_format)
 
     def get(self, request, **kwargs):
-        raise ImmediateHttpResponse(response=http.HttpNotImplemented())
+        raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
     
     def post(self, request, **kwargs):
-        raise ImmediateHttpResponse(response=http.HttpNotImplemented())
+        raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
     
     def put(self, request, **kwargs):
-        raise ImmediateHttpResponse(response=http.HttpNotImplemented())
+        raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
     
     def delete(self, request, **kwargs):
-        raise ImmediateHttpResponse(response=http.HttpNotImplemented())
+        raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
 
     def patch(self, request, **kwargs):
-        raise ImmediateHttpResponse(response=http.HttpNotImplemented())
+        raise ImmediateHttpResponse(response=http.HttpMethodNotAllowed())
 
 
 # Based off of ``piston.utils.coerce_put_post``. Similarly BSD-licensed.

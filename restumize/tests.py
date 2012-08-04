@@ -58,7 +58,7 @@ class DummyRequest():
 			# 'format': 'json',
 		}
 		self.POST = self.GET
-		self.FILES = []
+		self.FILES = {}
 		self.META = {
 			'REMOTE_ADDR': '127.0.0.1',
 			'REMOTE_HOST': 'localhost',
@@ -94,7 +94,7 @@ class ResourceTestCase(unittest.TestCase):
 		from django.forms.util import from_current_timezone
 
 		handler = TestHandler(self.request.GET);
-		status = handler.is_valid()
+		status = handler._is_valid()
 
 		if not status:
 			errors = handler.get_error_list()

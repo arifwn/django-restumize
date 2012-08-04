@@ -478,30 +478,6 @@ class FileField(BaseField):
 
         return data
 
-    def clean(self, data, initial=None):
-        # If the widget got contradictory inputs, we raise a validation error
-        if data is FILE_INPUT_CONTRADICTION:
-            raise ValidationError(self.error_messages['contradiction'])
-        # False means the field value should be cleared; further validation is
-        # not needed.
-        if data is False:
-            if not self.required:
-                return False
-            # If the field is required, clearing is not possible (the widget
-            # shouldn't return False data in that case anyway). False is not
-            # in validators.EMPTY_VALUES; if a False value makes it this far
-            # it should be validated from here on out as None (so it will be
-            # caught by the required check).
-            data = None
-        if not data and initial:
-            return initial
-        return super(FileField, self).clean(data)
-
-    def bound_data(self, data, initial):
-        if data in (None, FILE_INPUT_CONTRADICTION):
-            return initial
-        return data
-
 
 class ImageField(FileField):
     default_error_messages = {
@@ -558,3 +534,10 @@ class ImageField(FileField):
         if hasattr(f, 'seek') and callable(f.seek):
             f.seek(0)
         return f
+
+
+def is_empty(value):
+    if value in validators.EMPTY_VALUES:
+        return True
+    else:
+        return False

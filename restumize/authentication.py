@@ -8,6 +8,8 @@ from django.contrib.auth import authenticate
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.translation import ugettext as _
 
+from restumize.http import HttpUnauthorized
+
 try:
     from hashlib import sha1
 except ImportError:
@@ -86,7 +88,6 @@ class TokenAuthentication(Authentication):
         Should return either ``True`` if allowed, ``False`` if not or an
         ``HttpResponse`` if you need something custom.
         """
-        from django.contrib.auth.models import User
 
         try:
             token = self.extract_credentials(request)
@@ -96,12 +97,7 @@ class TokenAuthentication(Authentication):
         if not token:
             return self._unauthorized()
 
-        try:
-            user = User.objects.get(username=username)
-        except (User.DoesNotExist, User.MultipleObjectsReturned):
-            return self._unauthorized()
-
-        if self.get_key(user, token):
+        if self.get_key(token):
             user = self.get_user(token)
 
             if not self.check_active(user):
@@ -122,7 +118,7 @@ class TokenAuthentication(Authentication):
         try:
             Token.objects.get(token=token)
         except Token.DoesNotExist:
-            return self._unauthorized()
+            return False
 
         return True
 
@@ -141,3 +137,17 @@ class TokenAuthentication(Authentication):
         host = request.META.get('REMOTE_HOST', 'nohost')
         token = self.extract_credentials(request) or 'notoken'
         return "%s_%s_%s" % (address, host, token)
+
+
+class CookieAuthentication(Authentication):
+    """
+    Handles authentication from already logged-in user. User must log in via django apps.
+    """
+
+    def is_authenticated(self, request, **kwargs):
+        "Return True if user is not anonymous."
+        if request.user.is_authenticated():
+            return True
+        else:
+            return False
+            

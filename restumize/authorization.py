@@ -40,3 +40,34 @@ class ReadOnlyAuthorization(Authorization):
             return True
         else:
             return False
+
+
+class ReadWriteAuthorization(Authorization):
+    """
+    Allows GET and POST requests.
+    """
+    allowed_method = ['GET', 'POST']
+
+    def is_authorized(self, request, object=None):
+        """
+        Allow any ``GET`` request.
+        """
+        if request.method in self.allowed_method:
+            return True
+        else:
+            return False
+
+
+class AdminAuthorization(Authorization):
+    """
+    Only allows request from admin accounts.
+    """
+
+    def is_authorized(self, request, object=None):
+        """
+        Allow any request made by admin.
+        """
+        if request.user.is_staff:
+            return True
+        else:
+            return False

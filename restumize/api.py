@@ -3,12 +3,13 @@ import warnings
 
 from django.conf import settings
 from django.conf.urls.defaults import *
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.utils.cache import patch_cache_control
 from django.views.decorators.csrf import csrf_exempt
 
+from restumize import http
 from restumize.exceptions import NotRegistered, BadRequest
 from restumize.serializers import Serializer
 
@@ -44,7 +45,7 @@ class Api(object):
 
             self._canonicals[resource_name] = resource_class
 
-    def wrap_view(self, resource_class, view='view'):
+    def wrap_view(self, resource_class, view='_view'):
         """
         Wraps methods so they can be called in a more functional way as well
         as handling exceptions better.
@@ -63,10 +64,22 @@ class Api(object):
                     patch_cache_control(response, no_cache=True)
                 
                 return response
-            # except (BadRequest, fields.ApiFieldError), e:
-            #     return http.HttpBadRequest(e.args[0])
-            # except ValidationError, e:
-            #     return http.HttpBadRequest(', '.join(e.messages))
+            except BadRequest, e:
+                data = {
+                    "error": unicode(e.args[0]),
+                }
+                desired_format = resource._determine_format(request)
+                serialized = resource._serialize(request, data, desired_format)
+
+                return http.HttpBadRequest(serialized)
+            except ValidationError, e:
+                data = {
+                    "error": unicode(', '.join(e.messages)),
+                }
+                desired_format = resource._determine_format(request)
+                serialized = resource._serialize(request, data, desired_format)
+                
+                return http.HttpBadRequest(serialized)
             except Exception, e:
                 if hasattr(e, 'response'):
                     return e.response
