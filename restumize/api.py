@@ -35,13 +35,13 @@ class Api(object):
         resource_name = getattr(resource_class._meta, 'resource_name', None)
 
         if resource_name is None:
-            raise ImproperlyConfigured("Resource %r must define a 'resource_name'." % resource)
+            raise ImproperlyConfigured("Resource %r must define a 'resource_name'." % resource_class)
 
         self._registry[resource_name] = resource_class
 
         if canonical is True:
             if resource_name in self._canonicals:
-                warnings.warn("A new resource '%r' is replacing the existing canonical URL for '%s'." % (resource, resource_name), Warning, stacklevel=2)
+                warnings.warn("A new resource '%r' is replacing the existing canonical URL for '%s'." % (resource_class, resource_name), Warning, stacklevel=2)
 
             self._canonicals[resource_name] = resource_class
 
