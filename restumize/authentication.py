@@ -150,4 +150,13 @@ class CookieAuthentication(Authentication):
             return True
         else:
             return False
-            
+
+
+class AnonymousAuthentication(Authentication):
+    """
+    Handles anonymous authentication.
+    """
+
+    def is_authenticated(self, request, **kwargs):
+        "Return True for everyone."
+        return True
