@@ -31,8 +31,9 @@ class Api(object):
         self._registry = {}
         self._canonicals = {}
 
-    def register(self, resource_class, canonical=True):
-        resource_name = getattr(resource_class._meta, 'resource_name', None)
+    def register(self, resource_class, resource_name=None, canonical=True):
+        if resource_name is None:
+            resource_name = getattr(resource_class._meta, 'resource_name', None)
 
         if resource_name is None:
             raise ImproperlyConfigured("Resource %r must define a 'resource_name'." % resource_class)
@@ -106,7 +107,7 @@ class Api(object):
         resource_class = self._registry[name]
 
         urlpatterns = patterns('',
-            url(r"^(?P<resource_name>%s)%s$" % (resource_class._meta.resource_name, trailing_slash()), self.wrap_view(resource_class), name="api_view"),
+            url(r"^(?P<resource_name>%s)%s$" % (name, trailing_slash()), self.wrap_view(resource_class), name="api_view"),
         )
 
         return urlpatterns
